@@ -35,7 +35,7 @@ export function App() {
             <section className="status-panel panel" aria-live="polite">
               {showIntroStatus ? (
                 <div className="status-panel__intro" aria-label="Intro">
-                  <p>Words come from CEFR levels A1 to B2.</p>
+                  <p>Words come from CEFR (Common European Framework of Reference) levels A1 to B2.</p>
                   <p>Swap adjacent tiles to match at least three related words and earn points.</p>
                   <p>Hit the target score before you run out of moves.</p>
                   <div className="status-panel__intro-footer">

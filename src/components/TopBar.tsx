@@ -58,7 +58,7 @@ export function ActionBar({ disabled, onHint, onOpenSettings, onRestart }: Actio
         Restart
       </button>
       <button className="button button--ghost" type="button" onClick={onOpenSettings}>
-        Settings
+        Setting
       </button>
     </section>
   );
