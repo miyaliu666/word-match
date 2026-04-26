@@ -48,9 +48,35 @@ const SOUND_URLS = buildSoundUrls();
 
 export class AudioManager {
   private activeElements = new Set<HTMLAudioElement>();
+  private unlocked = false;
 
   async ensureReady(): Promise<void> {
-    return Promise.resolve();
+    if (this.unlocked || typeof Audio === 'undefined') {
+      return;
+    }
+
+    const warmupUrl = SOUND_URLS.select ?? Object.values(SOUND_URLS)[0];
+    if (!warmupUrl) {
+      this.unlocked = true;
+      return;
+    }
+
+    const warmupAudio = new Audio(warmupUrl);
+    warmupAudio.preload = 'auto';
+    warmupAudio.volume = 0;
+    warmupAudio.muted = true;
+    warmupAudio.setAttribute('playsinline', 'true');
+    warmupAudio.setAttribute('webkit-playsinline', 'true');
+
+    try {
+      await warmupAudio.play();
+      warmupAudio.pause();
+      warmupAudio.currentTime = 0;
+    } catch {
+      // Ignore unlock failures so gameplay can continue.
+    } finally {
+      this.unlocked = true;
+    }
   }
 
   async play(event: SoundEvent, enabled: boolean): Promise<void> {
@@ -66,6 +92,8 @@ export class AudioManager {
     const audio = new Audio(url);
     audio.preload = 'auto';
     audio.volume = 0.7;
+    audio.setAttribute('playsinline', 'true');
+    audio.setAttribute('webkit-playsinline', 'true');
     this.activeElements.add(audio);
 
     const cleanup = () => {

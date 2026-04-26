@@ -15,12 +15,14 @@ export function TopBar({
   disabled,
   onOpenLevels
 }: TopBarProps) {
+  const compactLevelLabel = levelLabel.replace(/^level\s+/i, '');
+
   return (
     <header className="top-bar panel">
       <div className="top-bar__stats" aria-label="Current round status">
         <button className="stat-chip stat-chip--level stat-chip--interactive" type="button" onClick={onOpenLevels} disabled={disabled}>
           <span className="stat-chip__label">Level</span>
-          <strong>{levelLabel}</strong>
+          <strong>{compactLevelLabel}</strong>
         </button>
         <div className="stat-chip stat-chip--moves">
           <span className="stat-chip__label">Moves</span>

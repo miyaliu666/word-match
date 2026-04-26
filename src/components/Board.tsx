@@ -21,6 +21,23 @@ type FlatTile = {
   col: number;
 };
 
+function getWordScale(word: string): number {
+  const length = word.replace(/[^a-zA-Z]/g, '').length;
+  if (length >= 10) {
+    return 0.58;
+  }
+
+  if (length >= 8) {
+    return 0.68;
+  }
+
+  if (length >= 6) {
+    return 0.8;
+  }
+
+  return 1;
+}
+
 export function Board({
   board,
   selectedId,
@@ -135,8 +152,9 @@ export function Board({
               .join(' ')}
             style={{
               gridRow: `${tile.row + 1}`,
-              gridColumn: `${tile.col + 1}`
-            }}
+              gridColumn: `${tile.col + 1}`,
+              '--tile-word-scale': String(getWordScale(tile.word))
+            } as CSSProperties}
             onClick={() => onTileClick(tile.row, tile.col)}
             disabled={disabled}
             aria-label={`Tile ${tile.word}`}

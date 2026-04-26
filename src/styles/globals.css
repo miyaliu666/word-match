@@ -258,6 +258,7 @@ button:disabled {
 .stat-chip strong {
   font-size: 1.2rem;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .stat-chip--level strong {
@@ -429,19 +430,19 @@ button:disabled {
   align-items: center;
   justify-content: center;
   text-align: center;
-  white-space: normal;
-  word-break: normal;
-  overflow-wrap: normal;
+  white-space: nowrap;
+  overflow: hidden;
   box-shadow: var(--panel-sheen);
 }
 
 .tile span {
   display: block;
   max-width: 100%;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  hyphens: auto;
-  line-height: 1.15;
+  font-size: calc(var(--tile-font-size, 1rem) * var(--tile-word-scale, 1));
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  line-height: 1.05;
 }
 
 @media (hover: none) {
@@ -963,6 +964,10 @@ button:disabled {
     font-size: 1rem;
   }
 
+  .stat-chip--level strong {
+    font-size: 0.9rem;
+  }
+
   .button {
     min-height: 2.75rem;
     padding: 0.65rem 0.8rem;
@@ -971,19 +976,19 @@ button:disabled {
 
   .play-area__board[data-board-size='4'] {
     --board-gap: 0.4rem;
-    --tile-font-size: 0.82rem;
+    --tile-font-size: 0.86rem;
     --tile-padding: 0.36rem;
   }
 
   .play-area__board[data-board-size='5'] {
     --board-gap: 0.34rem;
-    --tile-font-size: 0.74rem;
+    --tile-font-size: 0.78rem;
     --tile-padding: 0.3rem;
   }
 
   .play-area__board[data-board-size='6'] {
     --board-gap: 0.25rem;
-    --tile-font-size: 0.64rem;
+    --tile-font-size: 0.7rem;
     --tile-padding: 0.24rem;
   }
 
