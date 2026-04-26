@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { glossary } from '../../data/glossary.js';
+import { buildSessionGlossary, loadGlossaryForCefr } from '../../data/glossaryRuntime';
 import { defaultLevel, levels } from '../../data/levels';
 import { loadInstall } from '../../storage/installStorage';
 import { getDefaultProgress, loadProgress, saveProgress, type ProgressData } from '../../storage/progressStorage';
 import { getDefaultSettings, loadSettings, saveSettings, type SettingsData } from '../../storage/settingsStorage';
+import {
+  TILE_INVALID_ANIMATION_MS,
+  TILE_MOVE_ANIMATION_MS,
+  TILE_REMOVE_ANIMATION_MS,
+  TILE_SPAWN_ANIMATION_MS
+} from '../animation/timings';
 import { audioManager } from '../audio/AudioManager';
+import { createRandom, createSeed } from '../engine/seedRandom';
 import { GameEngine } from '../engine/GameEngine';
 import type { BoardPosition, GameStatus, ReviewGroup } from '../engine/types.public';
 
-const SWAP_DELAY = 150;
-const REMOVE_DELAY = 300;
-const FALL_DELAY = 350;
-const SHUFFLE_DELAY = 220;
+const SWAP_DELAY = TILE_MOVE_ANIMATION_MS;
+const INVALID_DELAY = TILE_INVALID_ANIMATION_MS;
+const REMOVE_DELAY = TILE_REMOVE_ANIMATION_MS;
+const FALL_DELAY = TILE_SPAWN_ANIMATION_MS;
+const SHUFFLE_DELAY = TILE_MOVE_ANIMATION_MS;
 const ROUND_RESULT_MODAL_DELAY = 1200;
 
 type RoundResult = {
@@ -30,6 +38,12 @@ type ComboMatchDetail = {
 function wait(ms: number, reducedMotion: boolean): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, reducedMotion ? 0 : ms);
+  });
+}
+
+function playSound(event: Parameters<typeof audioManager.play>[0], enabled: boolean): void {
+  audioManager.play(event, enabled).catch(() => {
+    // Ignore non-critical audio failures so gameplay timing stays deterministic.
   });
 }
 
@@ -55,6 +69,7 @@ export function useGameController() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<BoardPosition | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [swapPreviewIds, setSwapPreviewIds] = useState<string[]>([]);
   const [invalidIds, setInvalidIds] = useState<string[]>([]);
   const [removingIds, setRemovingIds] = useState<string[]>([]);
   const [spawnOffsets, setSpawnOffsets] = useState<Record<string, number>>({});
@@ -70,14 +85,26 @@ export function useGameController() {
   const [comboMatchDetails, setComboMatchDetails] = useState<ComboMatchDetail[]>([]);
 
   const buildLevel = useCallback(
-    (levelId: number, nextStatus = 'Fresh board loaded.') => {
+    async (levelId: number, nextStatus = 'Fresh board loaded.') => {
       roundTokenRef.current += 1;
+      const roundToken = roundTokenRef.current;
       window.clearTimeout(hintTimerRef.current);
       const install = loadInstall();
       const nextLevel = levels.find((entry) => entry.id === levelId) ?? defaultLevel;
+      setStatusMessage('Loading level...');
+      setIsResolving(true);
+
+      const sourceGlossary = await loadGlossaryForCefr(nextLevel.cefr);
+      const sessionSeed = createSeed(nextLevel.id, install.installId, debugSeed ? `${debugSeed}:session` : undefined);
+      const sessionGlossary = buildSessionGlossary(nextLevel, sourceGlossary, createRandom(sessionSeed));
+
+      if (roundToken !== roundTokenRef.current) {
+        return;
+      }
+
       const engine = new GameEngine({
         level: nextLevel,
-        glossary,
+        glossary: sessionGlossary,
         installId: install.installId,
         seedOverride: debugSeed
       });
@@ -92,13 +119,13 @@ export function useGameController() {
       setStatusMessage(nextStatus);
       setSelectedPosition(null);
       setSelectedId(null);
+      setSwapPreviewIds([]);
       setInvalidIds([]);
       setRemovingIds([]);
       setSpawnOffsets({});
       setReviewGroups([]);
       setReviewOpen(false);
       setRoundResult(null);
-      setIsResolving(false);
       setHintIds([]);
       setComboMatchDetails([]);
 
@@ -109,6 +136,8 @@ export function useGameController() {
       progressRef.current = nextProgress;
       saveProgress(nextProgress);
       setBestScore(nextProgress.bestScores[nextLevel.id] ?? 0);
+
+      setIsResolving(false);
     },
     [debugSeed]
   );
@@ -127,7 +156,10 @@ export function useGameController() {
     setUnlockedLevel(progress.unlockedLevel);
     setCompletedLevels(progress.completedLevels);
 
-    buildLevel(progress.lastLevelId, 'Board ready.');
+    buildLevel(progress.lastLevelId, 'Board ready.').catch(() => {
+      setStatusMessage('Failed to load board. Please retry.');
+      setIsResolving(false);
+    });
   }, [buildLevel]);
 
   const persistSettings = useCallback((nextSettings: SettingsData) => {
@@ -139,6 +171,30 @@ export function useGameController() {
     document.body.classList.remove('dark-palette', 'light-palette');
     document.body.classList.add(theme === 'light' ? 'light-palette' : 'dark-palette');
   }, [theme]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const warmupAudio = () => {
+      if (!settingsRef.current.soundEnabled) {
+        return;
+      }
+
+      audioManager.ensureReady().catch(() => {
+        // Ignore warmup failures and keep game playable.
+      });
+    };
+
+    window.addEventListener('pointerdown', warmupAudio, { passive: true });
+    window.addEventListener('keydown', warmupAudio);
+
+    return () => {
+      window.removeEventListener('pointerdown', warmupAudio);
+      window.removeEventListener('keydown', warmupAudio);
+    };
+  }, []);
 
   const persistProgress = useCallback((nextProgress: ProgressData) => {
     progressRef.current = nextProgress;
@@ -177,7 +233,7 @@ export function useGameController() {
       });
       setStatusMessage(status === 'won' ? 'Level complete.' : 'Out of moves.');
 
-      await audioManager.play(status === 'won' ? 'level_complete' : 'level_failed', settingsRef.current.soundEnabled);
+      playSound(status === 'won' ? 'level_complete' : 'level_failed', settingsRef.current.soundEnabled);
     },
     [level.id, persistProgress]
   );
@@ -193,8 +249,20 @@ export function useGameController() {
     persistSettings(nextSettings);
 
     if (nextValue) {
+      await audioManager.ensureReady();
       await audioManager.play('select', true);
     }
+  }, [persistSettings]);
+
+  const handleToggleReducedMotion = useCallback(() => {
+    const nextValue = !(settingsRef.current.reducedMotion ?? false);
+    const nextSettings: SettingsData = {
+      ...settingsRef.current,
+      reducedMotion: nextValue
+    };
+
+    setReducedMotion(nextValue);
+    persistSettings(nextSettings);
   }, [persistSettings]);
 
   const handleSetTheme = useCallback(
@@ -235,15 +303,14 @@ export function useGameController() {
     setHintIds([moveIds[0], moveIds[1]]);
     setStatusMessage('Try this match.');
 
-    if (settingsRef.current.soundEnabled) {
-      audioManager.play('select', true).catch(() => {});
-    }
-
     hintTimerRef.current = window.setTimeout(clearHint, 5000);
   }, [clearHint, isResolving, roundResult]);
 
   const handleRestart = useCallback(() => {
-    buildLevel(level.id);
+    buildLevel(level.id).catch(() => {
+      setStatusMessage('Failed to reload level. Please retry.');
+      setIsResolving(false);
+    });
   }, [buildLevel, level.id]);
 
   const handleSelectLevel = useCallback(
@@ -252,7 +319,10 @@ export function useGameController() {
         return;
       }
 
-      buildLevel(levelId);
+      buildLevel(levelId).catch(() => {
+        setStatusMessage('Failed to open level. Please retry.');
+        setIsResolving(false);
+      });
       setLevelPickerOpen(false);
     },
     [buildLevel, isResolving]
@@ -265,7 +335,10 @@ export function useGameController() {
       return;
     }
 
-    buildLevel(level.id + 1, 'Next level ready.');
+    buildLevel(level.id + 1, 'Next level ready.').catch(() => {
+      setStatusMessage('Failed to open next level. Please retry.');
+      setIsResolving(false);
+    });
   }, [buildLevel, hasNextLevel, isResolving, level.id]);
 
   const handleTileClick = useCallback(
@@ -279,7 +352,7 @@ export function useGameController() {
       clearHint();
 
       if (settingsRef.current.soundEnabled) {
-        await audioManager.ensureReady();
+        audioManager.ensureReady();
       }
 
       const tile = board[row]?.[col];
@@ -291,7 +364,7 @@ export function useGameController() {
         setSelectedPosition({ row, col });
         setSelectedId(tile.id);
         setStatusMessage('Tile selected. Choose a neighbor to swap.');
-        await audioManager.play('select', settingsRef.current.soundEnabled);
+        playSound('select', settingsRef.current.soundEnabled);
         return;
       }
 
@@ -309,11 +382,12 @@ export function useGameController() {
         setSelectedPosition({ row, col });
         setSelectedId(tile.id);
         setStatusMessage('Choose a neighboring tile to swap.');
-        await audioManager.play('select', settingsRef.current.soundEnabled);
+        playSound('select', settingsRef.current.soundEnabled);
         return;
       }
 
       setIsResolving(true);
+      setSwapPreviewIds([selectedId, tile.id].filter((id): id is string => Boolean(id)));
       setSelectedPosition(null);
       setSelectedId(null);
       setSpawnOffsets({});
@@ -329,21 +403,23 @@ export function useGameController() {
         if (!result.accepted) {
           setStatusMessage(result.status);
           setInvalidIds(result.swapIds);
-          await audioManager.play('invalid', settingsRef.current.soundEnabled);
-          await wait(SWAP_DELAY, reducedMotion);
+          playSound('invalid', settingsRef.current.soundEnabled);
+          await wait(INVALID_DELAY, reducedMotion);
           if (!isCurrentRound()) {
             return;
           }
           setBoard(result.revertedBoard);
+          setSwapPreviewIds([]);
           setInvalidIds([]);
           return;
         }
 
-        await audioManager.play('swap', settingsRef.current.soundEnabled);
+        playSound('swap', settingsRef.current.soundEnabled);
         await wait(SWAP_DELAY, reducedMotion);
         if (!isCurrentRound()) {
           return;
         }
+        setSwapPreviewIds([]);
 
         for (const step of result.resolutionSteps) {
           if (step.kind === 'match') {
@@ -357,7 +433,7 @@ export function useGameController() {
             ]);
             setRemovingIds(step.matchedIds);
             setStatusMessage(step.status);
-            await audioManager.play(step.combo > 1 ? 'combo' : 'match', settingsRef.current.soundEnabled);
+            playSound(step.combo > 1 ? 'combo' : 'match', settingsRef.current.soundEnabled);
             await wait(REMOVE_DELAY, reducedMotion);
             if (!isCurrentRound()) {
               return;
@@ -374,7 +450,7 @@ export function useGameController() {
             setBoard(step.nextBoard);
             setSpawnOffsets({});
             setStatusMessage(step.status);
-            await audioManager.play('shuffle', settingsRef.current.soundEnabled);
+            playSound('shuffle', settingsRef.current.soundEnabled);
             await wait(SHUFFLE_DELAY, reducedMotion);
             if (!isCurrentRound()) {
               return;
@@ -398,6 +474,7 @@ export function useGameController() {
         }
         setStatusMessage('Move failed unexpectedly. Try again.');
         setComboMatchDetails([]);
+        setSwapPreviewIds([]);
         setInvalidIds([]);
         setRemovingIds([]);
         setSpawnOffsets({});
@@ -434,6 +511,7 @@ export function useGameController() {
     theme,
     reducedMotion,
     selectedId,
+    selectedIds: Array.from(new Set([selectedId, ...swapPreviewIds].filter((id): id is string => Boolean(id)))),
     invalidIds,
     removingIds,
     hintIds,
@@ -457,6 +535,7 @@ export function useGameController() {
     setReviewOpen,
     setRoundResult,
     handleToggleSound,
+    handleToggleReducedMotion,
     handleSetTheme,
     handleRestart,
     handleNextLevel,

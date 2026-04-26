@@ -1,10 +1,11 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type { PublicBoard } from '../game/engine/types.public';
+import { TILE_MOVE_ANIMATION_MS, TILE_SPAWN_ANIMATION_MS } from '../game/animation/timings';
 
 type BoardProps = {
   board: PublicBoard;
-  selectedId: string | null;
+  selectedIds: string[];
   removingIds: string[];
   invalidIds: string[];
   hintIds: string[];
@@ -21,26 +22,26 @@ type FlatTile = {
   col: number;
 };
 
-function getWordScale(word: string): number {
-  const length = word.replace(/[^a-zA-Z]/g, '').length;
-  if (length >= 10) {
-    return 0.58;
+function splitWordForDisplay(word: string): { firstLine: string; secondLine: string } | null {
+  const normalizedWord = word.trim();
+  if (normalizedWord.length < 9 || normalizedWord.includes(' ')) {
+    return null;
   }
 
-  if (length >= 8) {
-    return 0.68;
+  const midpoint = Math.ceil(normalizedWord.length / 2);
+  const firstLine = `${normalizedWord.slice(0, midpoint)}-`;
+  const secondLine = normalizedWord.slice(midpoint);
+
+  if (!secondLine) {
+    return null;
   }
 
-  if (length >= 6) {
-    return 0.8;
-  }
-
-  return 1;
+  return { firstLine, secondLine };
 }
 
 export function Board({
   board,
-  selectedId,
+  selectedIds,
   removingIds,
   invalidIds,
   hintIds,
@@ -56,6 +57,7 @@ export function Board({
   const removingSet = useMemo(() => new Set(removingIds), [removingIds]);
   const invalidSet = useMemo(() => new Set(invalidIds), [invalidIds]);
   const hintSet = useMemo(() => new Set(hintIds), [hintIds]);
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const flatTiles = useMemo<FlatTile[]>(
     () =>
       board.flatMap((row, rowIndex) =>
@@ -82,7 +84,7 @@ export function Board({
       }
 
       const previousRect = previousRects.current.get(id);
-      const duration = reducedMotion ? 1 : 220;
+      const duration = reducedMotion ? 1 : TILE_MOVE_ANIMATION_MS;
 
       if (previousRect) {
         const x = previousRect.left - currentRect.left;
@@ -109,7 +111,7 @@ export function Board({
             { transform: 'translateY(0)', opacity: 1 }
           ],
           {
-            duration: reducedMotion ? 1 : 240,
+            duration: reducedMotion ? 1 : TILE_SPAWN_ANIMATION_MS,
             easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
             fill: 'both'
           }
@@ -131,36 +133,48 @@ export function Board({
         aria-label="Game board"
       >
         {flatTiles.map((tile) => (
-          <button
-            key={tile.id}
-            ref={(node) => {
-              if (node) {
-                tileRefs.current.set(tile.id, node);
-              } else {
-                tileRefs.current.delete(tile.id);
-              }
-            }}
-            type="button"
-            className={[
-              'tile',
-              selectedId === tile.id ? 'tile--selected' : '',
-              removingSet.has(tile.id) ? 'tile--removing' : '',
-              invalidSet.has(tile.id) ? 'tile--invalid' : '',
-              hintSet.has(tile.id) ? 'tile--hint' : ''
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            style={{
-              gridRow: `${tile.row + 1}`,
-              gridColumn: `${tile.col + 1}`,
-              '--tile-word-scale': String(getWordScale(tile.word))
-            } as CSSProperties}
-            onClick={() => onTileClick(tile.row, tile.col)}
-            disabled={disabled}
-            aria-label={`Tile ${tile.word}`}
-          >
-            <span>{tile.word}</span>
-          </button>
+          (() => {
+            const splitWord = splitWordForDisplay(tile.word);
+
+            return (
+              <button
+                key={tile.id}
+                ref={(node) => {
+                  if (node) {
+                    tileRefs.current.set(tile.id, node);
+                  } else {
+                    tileRefs.current.delete(tile.id);
+                  }
+                }}
+                type="button"
+                className={[
+                  'tile',
+                  selectedSet.has(tile.id) ? 'tile--selected' : '',
+                  removingSet.has(tile.id) ? 'tile--removing' : '',
+                  invalidSet.has(tile.id) ? 'tile--invalid' : '',
+                  hintSet.has(tile.id) ? 'tile--hint' : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                style={{
+                  gridRow: `${tile.row + 1}`,
+                  gridColumn: `${tile.col + 1}`
+                } as CSSProperties}
+                onClick={() => onTileClick(tile.row, tile.col)}
+                disabled={disabled}
+                aria-label={`Tile ${tile.word}`}
+              >
+                {splitWord ? (
+                  <span className="tile__word tile__word--wrapped">
+                    <span className="tile__word-line">{splitWord.firstLine}</span>
+                    <span className="tile__word-line">{splitWord.secondLine}</span>
+                  </span>
+                ) : (
+                  <span className="tile__word">{tile.word}</span>
+                )}
+              </button>
+            );
+          })()
         ))}
       </div>
     </section>

@@ -62,7 +62,7 @@ export function App() {
             </section>
             <Board
               board={game.board}
-              selectedId={game.selectedId}
+              selectedIds={game.selectedIds}
               removingIds={game.removingIds}
               invalidIds={game.invalidIds}
               hintIds={game.hintIds}
@@ -169,6 +169,15 @@ export function App() {
                   Light
                 </button>
               </div>
+            </div>
+
+            <div className="settings-row">
+              <div className="stack-copy">
+                <strong>Motion</strong>
+              </div>
+              <button className="button button--ghost" type="button" onClick={game.handleToggleReducedMotion}>
+                {game.reducedMotion ? 'Reduced' : 'Full'}
+              </button>
             </div>
           </section>
         </Modal>

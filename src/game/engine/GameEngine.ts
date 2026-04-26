@@ -28,7 +28,10 @@ type PublicBoardContext = {
   tileMetaById: Map<string, TileMeta>;
 };
 
-const MAX_RESOLUTION_STEPS = 6;
+// Limit how far automatic cascades can run from a single player swap.
+// This keeps combo rewarding without letting one hinted move snowball
+// into a near-auto-win.
+const MAX_RESOLUTION_STEPS = 3;
 
 function normalizeWord(word: string): string {
   return word.trim().toLocaleLowerCase();
@@ -267,7 +270,9 @@ export class GameEngine {
 
       if (repeatedBoardState || steps.length >= MAX_RESOLUTION_STEPS) {
         this.boardIds = shuffleStableBoard(this.boardIds, this.groupTokenByTileId, this.random);
-        this.statusMessage = 'Board stabilized.';
+        this.statusMessage = repeatedBoardState
+          ? 'Board stabilized.'
+          : (steps[steps.length - 1]?.status ?? 'Board stabilized.');
         steps.push({
           kind: 'shuffle',
           matchedIds: [],

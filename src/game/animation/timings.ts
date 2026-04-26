@@ -1,0 +1,4 @@
+export const TILE_MOVE_ANIMATION_MS = 300;
+export const TILE_SPAWN_ANIMATION_MS = 340;
+export const TILE_INVALID_ANIMATION_MS = 320;
+export const TILE_REMOVE_ANIMATION_MS = 340;

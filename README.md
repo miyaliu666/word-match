@@ -1,6 +1,6 @@
 # Word Match
 
-A vocabulary match game for language learners. Swap words on a 4x4 grid to match at least 3 words in a line.
+A vocabulary match game for language learners. Swap words on a grid to match at least 3 words in a line.
 
 ## Prerequisites
 
@@ -34,8 +34,10 @@ pnpm build      # build production assets
 │   ├── assets/
 │   │   └── audio/           # game sound effects
 │   ├── components/          # UI components
-│   ├── data/                # glossary and level data
+│   ├── data/                # glossary datasets, runtime loader, and levels
+│   │   └── glossaryChunks/  # CEFR split glossary chunks (A1/A2/B1/B2)
 │   ├── game/
+│   │   ├── animation/       # shared animation timing constants
 │   │   ├── audio/           # audio manager
 │   │   ├── engine/          # pure game rules
 │   │   └── hooks/           # React controller hooks

@@ -1,4 +1,4 @@
-const SETTINGS_KEY = 'word-match3.settings.v1';
+const SETTINGS_KEY = 'word-match3.settings.v2';
 
 export type SettingsData = {
   soundEnabled: boolean;
@@ -9,11 +9,9 @@ export type SettingsData = {
 };
 
 function getDefaultReducedMotion(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false;
-  }
-
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Keep gameplay feedback visible by default; users can still enable reduced
+  // motion manually in Settings.
+  return false;
 }
 
 export function getDefaultSettings(): SettingsData {
