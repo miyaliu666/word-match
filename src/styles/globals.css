@@ -53,6 +53,7 @@
 
 html {
   font-size: 18px;
+  -webkit-text-size-adjust: 100%;
 }
 
 * {
@@ -139,6 +140,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  padding-bottom: max(clamp(var(--space-4), 2vw, var(--space-6)), env(safe-area-inset-bottom));
 }
 
 .app-frame {
@@ -284,6 +286,7 @@ button:disabled {
     color var(--transition-fast),
     transform var(--transition-fast),
     opacity var(--transition-fast);
+  touch-action: manipulation;
 }
 
 .button {
@@ -439,6 +442,19 @@ button:disabled {
   overflow-wrap: anywhere;
   hyphens: auto;
   line-height: 1.15;
+}
+
+@media (hover: none) {
+  .button:hover:not(:disabled),
+  .level-card:hover:not(:disabled),
+  .tile:hover:not(:disabled),
+  .stat-chip--interactive:hover:not(:disabled),
+  .icon-button:hover:not(:disabled) {
+    transform: none;
+    border-color: inherit;
+    color: inherit;
+    background: inherit;
+  }
 }
 
 .tile:hover:not(:disabled) {
@@ -863,8 +879,16 @@ button:disabled {
 }
 
 @media (max-width: 700px) {
+  html {
+    font-size: 16px;
+  }
+
   .app-shell {
     padding: var(--space-4);
+  }
+
+  .top-bar__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .action-bar {
@@ -909,5 +933,111 @@ button:disabled {
 
   .review-group li {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 540px) {
+  .app-shell {
+    padding: var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .top-bar {
+    padding: var(--space-3);
+  }
+
+  .top-bar__stats {
+    gap: var(--space-2);
+  }
+
+  .stat-chip {
+    min-width: 0;
+    padding: var(--space-2);
+  }
+
+  .stat-chip__label {
+    font-size: 0.7rem;
+  }
+
+  .stat-chip strong {
+    font-size: 1rem;
+  }
+
+  .button {
+    min-height: 2.75rem;
+    padding: 0.65rem 0.8rem;
+    font-size: 0.88rem;
+  }
+
+  .play-area__board[data-board-size='4'] {
+    --board-gap: 0.4rem;
+    --tile-font-size: 0.82rem;
+    --tile-padding: 0.36rem;
+  }
+
+  .play-area__board[data-board-size='5'] {
+    --board-gap: 0.34rem;
+    --tile-font-size: 0.74rem;
+    --tile-padding: 0.3rem;
+  }
+
+  .play-area__board[data-board-size='6'] {
+    --board-gap: 0.25rem;
+    --tile-font-size: 0.64rem;
+    --tile-padding: 0.24rem;
+  }
+
+  .board-panel {
+    padding: var(--space-2);
+  }
+
+  .board-grid {
+    padding: 0.3rem;
+  }
+
+  .status-panel {
+    padding: var(--space-3);
+  }
+
+  .status-panel p {
+    font-size: 0.9rem;
+  }
+
+  .modal-overlay {
+    padding: var(--space-2);
+  }
+
+  .modal-panel,
+  .review-panel,
+  .level-picker-modal {
+    width: 100%;
+    max-height: calc(100dvh - (var(--space-2) * 2));
+  }
+
+  .modal-header,
+  .modal-actions,
+  .modal-body {
+    padding: var(--space-3);
+  }
+
+  .modal-actions {
+    justify-content: stretch;
+  }
+
+  .modal-actions > * {
+    flex: 1 1 100%;
+  }
+
+  .settings-theme-actions {
+    width: 100%;
+  }
+
+  .settings-theme-actions > * {
+    flex: 1 1 0;
+  }
+
+  .level-card {
+    padding: var(--space-3);
+    gap: var(--space-3);
   }
 }
