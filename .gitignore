@@ -1,0 +1,24 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+
+# Editor
+.vscode/
+.idea/
+
+# Test
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Custom
+.playwright-mcp/
+.agents/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
